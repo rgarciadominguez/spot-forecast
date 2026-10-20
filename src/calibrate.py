@@ -210,11 +210,11 @@ def calibrate_all() -> dict:
                 params["hours"] = int(j["time"].nunique())
                 params["from"] = str(j["time"].min())[:10]
                 entry["params"] = params
-                entry["quality"] = "orilla" if (st["km"] <= NEAR_KM and st["net"] != "meteostat") else \
-                    ("cercana" if st["km"] <= NEAR_KM else "referencia lejana")
-                if st["km"] <= NEAR_KM:
-                    for l, q in params["q"].items():
-                        generic_pool[l].append(q["_"])
+                # Solo corregimos sesgo local con estaciones de costa cercanas; los aeropuertos
+                # (interior, otra exposición) sirven para elegir modelos y dar una horquilla genérica.
+                entry["quality"] = "orilla" if (st["km"] <= NEAR_KM and st["net"] != "meteostat") else "referencia"
+                for l, q in params["q"].items():
+                    generic_pool[l].append(q["_"])
             else:
                 entry["quality"] = "acumulando datos"
                 entry["hours"] = int(j["time"].nunique()) if not j.empty else 0
@@ -222,7 +222,7 @@ def calibrate_all() -> dict:
     generic = {l: [float(np.mean([q[0] for q in v])), float(np.mean([q[1] for q in v]))] if v else [-4.0, 4.0]
                for l, v in generic_pool.items()}
     for e in result.values():
-        if e["params"] is None or e["quality"] == "referencia lejana":
+        if e["params"] is None or e["quality"] == "referencia":
             # Spot sin estación representativa: no corregimos sesgo local, horquilla genérica
             base = e["params"] or {}
             e["params"] = {"weights": base.get("weights", {}), "corr": {}, "q": {}, "spread_med": base.get("spread_med", {}),

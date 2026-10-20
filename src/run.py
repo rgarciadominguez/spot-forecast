@@ -44,6 +44,19 @@ def _save_state(st: dict):
     write_json(STATE, st)
 
 
+def _resume_from(spot_id: str, start: str) -> str:
+    """Si ya hay histórico descargado (p.ej. una ejecución cortada), seguimos desde donde acabó."""
+    p = DATA / "fc_hist" / f"{spot_id}.parquet"
+    if not p.exists():
+        return start
+    import pandas as pd
+    t = pd.read_parquet(p, columns=["time"])["time"]
+    old = t[t < pd.Timestamp(_now().date() - timedelta(days=5))]
+    if old.empty or old.min() > pd.Timestamp(start) + pd.Timedelta(days=2):
+        return start
+    return (old.max() + pd.Timedelta(hours=1)).date().isoformat()
+
+
 def backfill_step(budget: float | None = None) -> dict:
     """Avanza el histórico pendiente sin pasarse del cupo. Devuelve qué ha hecho."""
     st = _load_state()
@@ -57,7 +70,9 @@ def backfill_step(budget: float | None = None) -> dict:
     used, chunks = 0.0, 0
     try:
         for s in order:
-            cur = date.fromisoformat(st["cursor"].get(s["id"], st["start"]))
+            if s["id"] not in st["cursor"]:
+                st["cursor"][s["id"]] = _resume_from(s["id"], st["start"])
+            cur = date.fromisoformat(st["cursor"][s["id"]])
             while cur <= end:
                 c_end = min(cur + timedelta(days=CHUNK_DAYS - 1), end)
                 w = history_weight((c_end - cur).days + 1)
@@ -69,6 +84,7 @@ def backfill_step(budget: float | None = None) -> dict:
                 chunks += 1
                 cur = c_end + timedelta(days=1)
                 st["cursor"][s["id"]] = cur.isoformat()
+                _save_state(st)
                 time.sleep(1)
         st["done"] = True
     except StopIteration:
