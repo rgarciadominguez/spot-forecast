@@ -20,7 +20,7 @@ from . import obs as O
 from .build import build_all
 from .calibrate import calibrate_all
 from .common import DATA, RateLimited, load_spots, write_json
-from .forecast import fetch_snapshot, history_weight, update_fc_history
+from .forecast import GROUP, fetch_snapshots, history_weight, update_fc_history
 
 STATE = DATA / "backfill_state.json"
 HOURLY_BUDGET = 1500     # llamadas ponderadas por ejecución dedicadas al histórico
@@ -57,46 +57,50 @@ def _resume_from(spot_id: str, start: str) -> str:
     return (old.max() + pd.Timedelta(hours=1)).date().isoformat()
 
 
-def backfill_step(budget: float | None = None) -> dict:
-    """Avanza el histórico pendiente sin pasarse del cupo. Devuelve qué ha hecho."""
+def backfill_step(budget: float | None = None, max_seconds: int = 12 * 60) -> dict:
+    """Avanza el histórico pendiente sin pasarse del cupo ni del tiempo. Agrupa spots con el mismo punto
+    de avance para hacer pocas peticiones."""
     st = _load_state()
     if not st or st.get("done"):
         return {"status": "nada pendiente"}
+    t0 = time.time()
     today = _now().date().isoformat()
     spent_today = st.setdefault("spent", {}).get(today, 0.0)
     budget = min(budget or HOURLY_BUDGET, DAILY_BUDGET - spent_today)
     end = date.fromisoformat(st["end"])
-    order = sorted(load_spots(), key=lambda s: PRIORITY.index(s["id"]) if s["id"] in PRIORITY else 99)
+    spots = sorted(load_spots(), key=lambda s: PRIORITY.index(s["id"]) if s["id"] in PRIORITY else 99)
+    for s in spots:
+        if s["id"] not in st["cursor"]:
+            st["cursor"][s["id"]] = _resume_from(s["id"], st["start"])
     used, chunks = 0.0, 0
     try:
-        for s in order:
-            if s["id"] not in st["cursor"]:
-                st["cursor"][s["id"]] = _resume_from(s["id"], st["start"])
-            cur = date.fromisoformat(st["cursor"][s["id"]])
-            while cur <= end:
-                c_end = min(cur + timedelta(days=CHUNK_DAYS - 1), end)
-                w = history_weight((c_end - cur).days + 1)
-                if used + w > budget:
-                    raise StopIteration
-                n = update_fc_history(s, cur, c_end)
-                print(f"[backfill] {s['id']} {cur}..{c_end}: {n} filas", flush=True)
-                used += w
-                chunks += 1
-                cur = c_end + timedelta(days=1)
-                st["cursor"][s["id"]] = cur.isoformat()
-                _save_state(st)
-                time.sleep(1)
-        st["done"] = True
-    except StopIteration:
-        pass
+        while True:
+            pending = [s for s in spots if date.fromisoformat(st["cursor"][s["id"]]) <= end]
+            if not pending:
+                st["done"] = True
+                break
+            # Grupo: hasta GROUP spots que comparten el cursor más atrasado del primero pendiente
+            cur = date.fromisoformat(st["cursor"][pending[0]["id"]])
+            grp = [s for s in pending if st["cursor"][s["id"]] == cur.isoformat()][:GROUP]
+            c_end = min(cur + timedelta(days=CHUNK_DAYS - 1), end)
+            w = history_weight((c_end - cur).days + 1, len(grp))
+            if used + w > budget or time.time() - t0 > max_seconds:
+                break
+            rows = update_fc_history(grp, cur, c_end)
+            print(f"[backfill] {cur}..{c_end}: " + ", ".join(f"{k}={v}" for k, v in rows.items()), flush=True)
+            used += w
+            chunks += 1
+            for g in grp:
+                st["cursor"][g["id"]] = (c_end + timedelta(days=1)).isoformat()
+            _save_state(st)
     except RateLimited as e:
-        print(f"[backfill] cupo de la API agotado, sigo en la próxima ejecución: {e}")
+        print(f"[backfill] cupo de la API agotado, sigo en la próxima ejecución: {e}", flush=True)
     finally:
         st["spent"][today] = round(spent_today + used, 1)
         st["spent"] = {k: v for k, v in st["spent"].items() if k >= (_now().date() - timedelta(days=3)).isoformat()}
         _save_state(st)
-    pend = sum(1 for s in load_spots() if date.fromisoformat(st["cursor"].get(s["id"], st["start"])) <= end)
-    return {"chunks": chunks, "weight": round(used), "spots_pendientes": pend, "done": st.get("done", False)}
+    pend = sum(1 for s in spots if date.fromisoformat(st["cursor"][s["id"]]) <= end)
+    return {"requests": chunks, "weight": round(used), "spots_pendientes": pend, "done": st.get("done", False)}
 
 
 def collect():
@@ -105,26 +109,24 @@ def collect():
     log = {"started": now.isoformat(timespec="minutes")}
     log["obs"] = O.collect_recent()
     today = now.date()
-    fc = {}
-    # Previsiones: los modelos salen cada 6 h -> snapshot cada 3 h y previsiones pasadas cada 6 h
-    do_snap = now.hour % 3 == 0 or not (DATA / "snapshots").exists() or not any((DATA / "snapshots").iterdir())
-    do_hist = now.hour % 6 == 0 or not any((DATA / "fc_hist").glob("*.parquet"))
+    spots = load_spots()
+    snap_dir, hist_dir = DATA / "snapshots", DATA / "fc_hist"
+    # Los modelos salen cada 6 h -> previsión actual cada 3 h y previsiones pasadas cada 6 h
+    missing_snap = [s for s in spots if not (snap_dir / f"{s['id']}.parquet").exists()]
+    do_snap = now.hour % 3 == 0 or bool(missing_snap)
+    do_hist = now.hour % 6 == 0 or not any(hist_dir.glob("*.parquet"))
     try:
-        for s in load_spots():
-            try:
-                if do_hist:
-                    fc[s["id"]] = update_fc_history(s, today - timedelta(days=3), today + timedelta(days=1))
-                if do_snap or not (DATA / "snapshots" / f"{s['id']}.parquet").exists():
-                    fetch_snapshot(s)
-            except RateLimited:
-                raise
-            except Exception as e:  # noqa: BLE001
-                print(f"[fc {s['id']}] falló: {e}")
-                fc[s["id"]] = f"error: {e}"
+        if do_snap:
+            log["snapshots"] = fetch_snapshots(spots)
+        if do_hist:
+            rows = update_fc_history(spots, today - timedelta(days=3), today + timedelta(days=1))
+            log["fc_rows"] = sum(rows.values())
     except RateLimited as e:
-        print(f"[fc] cupo de la API agotado: {e}")
+        print(f"[fc] cupo de la API agotado: {e}", flush=True)
         log["rate_limited"] = True
-    log["fc_rows"] = fc
+    except Exception as e:  # noqa: BLE001
+        print(f"[fc] falló: {e}", flush=True)
+        log["fc_error"] = str(e)
     if not log.get("rate_limited"):
         log["backfill"] = backfill_step()
     calibrate_all()
@@ -132,7 +134,7 @@ def collect():
     log["spots_built"] = len(summ["spots"])
     log["seconds"] = round(time.time() - t0)
     write_json(DATA / "last_run.json", log)
-    print(json.dumps(log, ensure_ascii=False, indent=1, default=str))
+    print(json.dumps(log, ensure_ascii=False, indent=1, default=str), flush=True)
 
 
 def backfill(start: date):
@@ -142,7 +144,7 @@ def backfill(start: date):
         st = {"start": start.isoformat(), "end": (_now().date() - timedelta(days=1)).isoformat(), "cursor": {},
               "spent": {}, "done": False}
         _save_state(st)
-    print("Histórico:", backfill_step(budget=HOURLY_BUDGET * 2))
+    print("Histórico:", backfill_step(budget=HOURLY_BUDGET * 2, max_seconds=25 * 60), flush=True)
     collect()
 
 
