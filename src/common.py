@@ -49,13 +49,24 @@ def load_rules() -> dict:
     return yaml.safe_load((ROOT / "rules.yaml").read_text(encoding="utf-8"))
 
 
+class RateLimited(RuntimeError):
+    """Límite horario/diario de la API gratuita: paramos y seguimos en la próxima ejecución."""
+
+
 def http_get(url: str, params: dict | None = None, *, tries: int = 4, timeout: int = 60,
              headers: dict | None = None) -> requests.Response:
     last = None
     for i in range(tries):
         try:
             r = requests.get(url, params=params, timeout=timeout, headers={**UA, **(headers or {})})
-            if r.status_code == 429 or r.status_code >= 500:
+            if r.status_code == 429:
+                txt = r.text.lower()
+                if "hourly" in txt or "daily" in txt:
+                    raise RateLimited(r.text[:200])
+                last = RuntimeError(f"429 {r.text[:200]}")
+                time.sleep(65)  # límite por minuto
+                continue
+            if r.status_code >= 500:
                 last = RuntimeError(f"{r.status_code} {r.text[:200]}")
                 time.sleep(5 * (i + 1) ** 2)
                 continue

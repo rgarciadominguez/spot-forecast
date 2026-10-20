@@ -34,7 +34,7 @@ def fetch_fc_history(lat: float, lon: float, start: date, end: date) -> pd.DataF
     frames = []
     cur = start
     while cur <= end:
-        chunk_end = min(cur + timedelta(days=60), end)
+        chunk_end = min(cur + timedelta(days=29), end)
         hourly = [v + _suffix(l) for l in LEADS for v in WIND_VARS]
         js = get_json(PREV_URL, params={
             "latitude": lat, "longitude": lon, "hourly": ",".join(hourly), "models": ",".join(WIND_MODELS),
@@ -62,6 +62,15 @@ def fetch_fc_history(lat: float, lon: float, start: date, end: date) -> pd.DataF
     for c in ("wspd", "gust", "wdir"):
         out[c] = out[c].astype("float32")
     return out[["time", "model", "lead", "wspd", "gust", "wdir"]]
+
+
+def request_weight(days: int, n_vars: int) -> float:
+    """Coste aproximado de una petición en 'llamadas' de la API gratuita de Open-Meteo."""
+    return max(1.0, n_vars / 10) * max(1.0, days / 14)
+
+
+def history_weight(days: int) -> float:
+    return request_weight(days, len(LEADS) * len(WIND_VARS) * len(WIND_MODELS))
 
 
 def update_fc_history(spot: dict, start: date, end: date) -> int:
