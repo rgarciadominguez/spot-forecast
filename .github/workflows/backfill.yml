@@ -17,6 +17,8 @@ concurrency:
 jobs:
   backfill:
     runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4

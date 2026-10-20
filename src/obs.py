@@ -202,7 +202,11 @@ def fetch_aemet(records: list[dict] | None, wanted: set[str]) -> int:
 def fetch_meteostat(sid: str, years: list[int]) -> int:
     frames = []
     for y in years:
-        txt = get_gz_text(f"https://data.meteostat.net/hourly/{y}/{sid}.csv.gz")
+        try:
+            txt = get_gz_text(f"https://data.meteostat.net/hourly/{y}/{sid}.csv.gz")
+        except Exception as e:  # noqa: BLE001
+            print(f"[meteostat {sid} {y}] falló: {e}", flush=True)
+            continue
         if not txt:
             continue
         df = pd.read_csv(io.StringIO(txt))
@@ -274,9 +278,10 @@ def collect_recent() -> dict:
         except Exception as e:  # noqa: BLE001
             print(f"[{name}] falló: {e}")
             stats[name] = f"error: {e}"
-    # Meteostat: refresco del año en curso (barato, ficheros pequeños)
-    y = datetime.now(timezone.utc).year
-    for m in METEOSTAT:
+    # Meteostat: refresco del año en curso cada 6 h (los METAR llegan con retraso)
+    now = datetime.now(timezone.utc)
+    y = now.year
+    for m in (METEOSTAT if now.hour % 6 == 1 else []):
         try:
             stats[f"meteostat_{m['id']}"] = fetch_meteostat(m["id"], [y])
         except Exception as e:  # noqa: BLE001
@@ -286,7 +291,11 @@ def collect_recent() -> dict:
 
 def backfill_meteostat(start_year: int) -> dict:
     y = datetime.now(timezone.utc).year
-    return {m["id"]: fetch_meteostat(m["id"], list(range(start_year, y + 1))) for m in METEOSTAT}
+    out = {}
+    for m in METEOSTAT:
+        out[m["id"]] = fetch_meteostat(m["id"], list(range(start_year, y + 1)))
+        print(f"[meteostat] {m['name']}: {out[m['id']]} horas", flush=True)
+    return out
 
 
 def load_obs(net: str, sid: str) -> pd.DataFrame:

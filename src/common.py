@@ -53,7 +53,7 @@ class RateLimited(RuntimeError):
     """Límite horario/diario de la API gratuita: paramos y seguimos en la próxima ejecución."""
 
 
-def http_get(url: str, params: dict | None = None, *, tries: int = 4, timeout: int = 60,
+def http_get(url: str, params: dict | None = None, *, tries: int = 3, timeout: int = 45,
              headers: dict | None = None) -> requests.Response:
     last = None
     for i in range(tries):
@@ -64,7 +64,10 @@ def http_get(url: str, params: dict | None = None, *, tries: int = 4, timeout: i
                 if "hourly" in txt or "daily" in txt:
                     raise RateLimited(r.text[:200])
                 last = RuntimeError(f"429 {r.text[:200]}")
-                time.sleep(65)  # límite por minuto
+                if "minutely" in txt:
+                    time.sleep(65)  # límite por minuto de Open-Meteo
+                else:
+                    time.sleep(10 * (i + 1))
                 continue
             if r.status_code >= 500:
                 last = RuntimeError(f"{r.status_code} {r.text[:200]}")

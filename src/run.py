@@ -63,7 +63,8 @@ def backfill_step(budget: float | None = None) -> dict:
                 w = history_weight((c_end - cur).days + 1)
                 if used + w > budget:
                     raise StopIteration
-                update_fc_history(s, cur, c_end)
+                n = update_fc_history(s, cur, c_end)
+                print(f"[backfill] {s['id']} {cur}..{c_end}: {n} filas", flush=True)
                 used += w
                 chunks += 1
                 cur = c_end + timedelta(days=1)
