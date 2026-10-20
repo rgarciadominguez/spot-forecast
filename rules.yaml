@@ -1,0 +1,35 @@
+# Rangos "aprovechables" por deporte. Ajústalos a tu nivel y material.
+# El dashboard cuenta las horas de luz que cumplen; los avisos usarán estos mismos rangos.
+# Viento en nudos (kn), olas en metros (m), periodo en segundos (s).
+
+windsurf:
+  wind_min: 15        # mínimo para planear con tu vela grande
+  wind_max: 32        # máximo cómodo
+  avoid_relation: [offshore]   # viento de tierra = peligroso
+  levels:             # horas seguidas/aprovechables en el día -> nivel
+    bueno: 2
+    muy_bueno: 4
+    excepcional: 6
+  excepcional_min_wind: 20
+
+kite:
+  wind_min: 14
+  wind_max: 28
+  avoid_relation: [offshore, cross-off]
+  levels: {bueno: 2, muy_bueno: 4, excepcional: 6}
+  excepcional_min_wind: 18
+
+wing:
+  wind_min: 12
+  wind_max: 26
+  avoid_relation: [offshore, cross-off]
+  levels: {bueno: 2, muy_bueno: 4, excepcional: 6}
+  excepcional_min_wind: 16
+
+surf:
+  wave_min: 0.8       # altura significativa en el pico (aprox.)
+  wave_max: 2.8
+  period_min: 9
+  wind_max_onshore: 8   # con viento de mar por encima de esto se estropea
+  levels: {bueno: 2, muy_bueno: 4, excepcional: 6}
+  excepcional_min_period: 12

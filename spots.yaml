@@ -1,0 +1,176 @@
+# Spots del predictor. "facing" = hacia dónde mira la playa (grados, de donde viene el mar).
+# Viento offshore = viene de facing+180. Onshore = viene de facing.
+# sports: windsurf, kite, wing, surf
+# obs: estaciones de realidad (se rellenan/ajustan en obs_stations.yaml)
+
+spots:
+  # ---------- HUELVA ----------
+  - id: portil
+    name: El Portil
+    zone: Huelva
+    lat: 37.2075
+    lon: -7.0450
+    facing: 190
+    sports: [windsurf, kite, wing]
+  - id: punta_umbria
+    name: Punta Umbría
+    zone: Huelva
+    lat: 37.1760
+    lon: -6.9650
+    facing: 200
+    sports: [windsurf, kite, wing]
+
+  # ---------- ESTRECHO / CÁDIZ ----------
+  - id: valdevaqueros
+    name: Tarifa – Valdevaqueros
+    zone: Estrecho
+    lat: 36.0700
+    lon: -5.6890
+    facing: 220
+    sports: [windsurf, kite, wing]
+  - id: los_lances
+    name: Tarifa – Los Lances
+    zone: Estrecho
+    lat: 36.0310
+    lon: -5.6270
+    facing: 215
+    sports: [windsurf, kite, wing]
+  - id: canos
+    name: Caños de Meca
+    zone: Cádiz
+    lat: 36.1880
+    lon: -6.0200
+    facing: 215
+    sports: [windsurf, kite, wing, surf]
+  - id: el_palmar
+    name: El Palmar
+    zone: Cádiz
+    lat: 36.2290
+    lon: -6.0770
+    facing: 240
+    sports: [surf]
+  - id: roche
+    name: Roche
+    zone: Cádiz
+    lat: 36.3170
+    lon: -6.1520
+    facing: 245
+    sports: [surf]
+  - id: conil
+    name: Conil – Fuente del Gallo
+    zone: Cádiz
+    lat: 36.2930
+    lon: -6.1060
+    facing: 250
+    sports: [surf]
+
+  # ---------- ALGARVE ----------
+  - id: sagres_oeste
+    name: Sagres oeste (Amado)
+    zone: Algarve
+    lat: 37.1680
+    lon: -8.9030
+    facing: 270
+    sports: [surf]
+  - id: sagres_tonel
+    name: Sagres (Tonel/Beliche)
+    zone: Algarve
+    lat: 37.0040
+    lon: -8.9460
+    facing: 225
+    sports: [surf]
+  - id: sagres_sur
+    name: Sagres sur (Zavial)
+    zone: Algarve
+    lat: 37.0510
+    lon: -8.8740
+    facing: 180
+    sports: [surf]
+
+  # ---------- LISBOA ----------
+  - id: guincho
+    name: Guincho
+    zone: Lisboa
+    lat: 38.7310
+    lon: -9.4730
+    facing: 280
+    sports: [windsurf, kite, wing, surf]
+  - id: praia_grande
+    name: Praia Grande (Sintra)
+    zone: Lisboa
+    lat: 38.8140
+    lon: -9.4790
+    facing: 280
+    sports: [surf]
+  - id: carcavelos
+    name: Carcavelos
+    zone: Lisboa
+    lat: 38.6780
+    lon: -9.3360
+    facing: 190
+    sports: [surf]
+  - id: caparica
+    name: Costa da Caparica
+    zone: Lisboa
+    lat: 38.6400
+    lon: -9.2400
+    facing: 265
+    sports: [surf]
+  - id: ericeira
+    name: Ericeira (Ribeira d'Ilhas)
+    zone: Lisboa
+    lat: 38.9880
+    lon: -9.4200
+    facing: 290
+    sports: [surf]
+  - id: supertubos
+    name: Peniche – Supertubos
+    zone: Lisboa
+    lat: 39.3450
+    lon: -9.3620
+    facing: 225
+    sports: [surf]
+  - id: baleal
+    name: Peniche – Baleal norte
+    zone: Lisboa
+    lat: 39.3750
+    lon: -9.3350
+    facing: 350
+    sports: [surf]
+
+  # ---------- CANTÁBRICO ----------
+  - id: sopelana
+    name: Sopelana
+    zone: Cantábrico
+    lat: 43.3890
+    lon: -2.9970
+    facing: 320
+    sports: [surf]
+  - id: mundaka
+    name: Mundaka
+    zone: Cantábrico
+    lat: 43.4070
+    lon: -2.6990
+    facing: 340
+    sports: [surf]
+  - id: zarautz
+    name: Zarautz
+    zone: Cantábrico
+    lat: 43.2870
+    lon: -2.1700
+    facing: 355
+    sports: [surf]
+  - id: somo
+    name: Somo
+    zone: Cantábrico
+    lat: 43.4550
+    lon: -3.7350
+    facing: 10
+    sports: [kite, wing, surf]
+  - id: oyambre
+    name: Oyambre
+    zone: Cantábrico
+    lat: 43.3930
+    lon: -4.3300
+    facing: 0
+    sports: [surf]

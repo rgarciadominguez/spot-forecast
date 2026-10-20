@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spot Forecast</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f6f4; --surface: #fcfcfb; --surface-2: #f0efec; --line: #e2e1dc;
+  --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #8a8983;
+  --fc: #2a78d6; --band: rgba(42,120,214,.18); --obs: #eb6834; --gust: #8a8983;
+  --wave: #1baf7a; --waveband: rgba(27,175,122,.18); --tide: #6250d6;
+  --lv1: #cde2fb; --lv2: #6da7ec; --lv3: #1c5cab; --lv3-ink: #fff;
+  --night: rgba(20,20,40,.05); --now: #e34948;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --line: #31312e;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+    --fc: #3987e5; --band: rgba(57,135,229,.22); --obs: #d95926; --gust: #8f8e86;
+    --wave: #199e70; --waveband: rgba(25,158,112,.22); --tide: #9085e9;
+    --lv1: #184f95; --lv2: #2a78d6; --lv3: #86b6ef; --lv3-ink: #0b0b0b;
+    --night: rgba(255,255,255,.04); --now: #e66767;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar { max-width: 1200px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+h1 small { color: var(--ink-3); font-weight: 400; font-size: 12px; margin-left: 6px; }
+nav { display: flex; gap: 4px; margin-left: auto; }
+nav button, .chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); padding: 6px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; }
+nav button.on, .chip.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.muted { color: var(--ink-3); font-size: 13px; }
+.sub { color: var(--ink-2); font-size: 13px; }
+h2 { font-size: 16px; margin: 0 0 6px; }
+h3 { font-size: 14px; margin: 0 0 8px; color: var(--ink-2); font-weight: 600; }
+select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); max-width: 100%; }
+/* Resumen */
+.tablewrap { overflow-x: auto; }
+table.sum { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 760px; }
+table.sum th { font-size: 12px; color: var(--ink-3); font-weight: 500; text-align: left; padding: 4px; white-space: nowrap; }
+table.sum td.spot { white-space: nowrap; padding: 4px 8px 4px 0; cursor: pointer; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+@media (max-width: 760px) { table.sum td.spot { max-width: 120px; white-space: normal; } table.sum { min-width: 0; } }
+table.sum td.spot b { font-weight: 600; }
+table.sum td.spot span { display: block; font-size: 11px; color: var(--ink-3); }
+.cell { border-radius: 8px; padding: 6px 7px; font-size: 12px; min-width: 88px; background: var(--surface-2); color: var(--ink-3); cursor: pointer; line-height: 1.3; }
+.cell b { display: block; font-size: 12px; }
+.cell.l1 { background: var(--lv1); color: var(--ink); }
+.cell.l2 { background: var(--lv2); color: #0b0b0b; }
+.cell.l3 { background: var(--lv3); color: var(--lv3-ink); }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.zone { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); padding-top: 10px !important; }
+/* Spot */
+.chartbox { position: relative; height: 300px; }
+.chartbox.sm { height: 170px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+.kpi { background: var(--surface-2); border-radius: 10px; padding: 10px; }
+.kpi .v { font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
+.kpi .l { font-size: 12px; color: var(--ink-3); }
+table.hours { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+table.hours th, table.hours td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.hours th:first-child, table.hours td:first-child { text-align: left; color: var(--ink-3); position: sticky; left: 0; background: var(--surface); }
+table.hours tr.hl td { font-weight: 650; }
+.arrow { display: inline-block; font-size: 14px; line-height: 1; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 11px; background: var(--surface-2); color: var(--ink-2); }
+.tag.off { background: rgba(227,73,72,.15); color: var(--now); }
+.tag.on { background: rgba(42,120,214,.15); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .chartbox { height: 260px; } }
+table.rel { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.rel th, table.rel td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+table.rel th { color: var(--ink-3); font-weight: 500; font-size: 12px; }
+.meter { height: 8px; background: var(--surface-2); border-radius: 4px; position: relative; min-width: 80px; }
+.meter > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--fc); }
+.meter > em { position: absolute; left: 80%; top: -3px; bottom: -3px; width: 2px; background: var(--ink-2); }
+.note { font-size: 12px; color: var(--ink-2); background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>🌊 Spot Forecast <small id="gen"></small></h1>
+    <nav>
+      <button data-v="sum" class="on">Resumen</button>
+      <button data-v="spot">Spot</button>
+      <button data-v="rel">¿Cuánto me fío?</button>
+    </nav>
+  </div>
+</header>
+<main>
+  <!-- RESUMEN -->
+  <section id="v-sum">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Próximos 7 días</h2><div class="sub">Horas de luz aprovechables según tus rangos (rules.yaml). Toca una celda para ver el detalle.</div></div>
+        <div class="row" id="sportChips"></div>
+      </div>
+      <div class="tablewrap" style="margin-top:10px"><table class="sum" id="sumTable"></table></div>
+      <div class="legend">
+        <span><i style="background:var(--surface-2)"></i>Nada / poco</span>
+        <span><i style="background:var(--lv1)"></i>Bueno</span>
+        <span><i style="background:var(--lv2)"></i>Muy bueno</span>
+        <span><i style="background:var(--lv3)"></i>Excepcional</span>
+        <span class="muted">· Orientativo hasta que cada spot esté calibrado</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPOT -->
+  <section id="v-spot" class="hide">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <select id="spotSel"></select>
+          <div class="sub" id="spotMeta" style="margin-top:6px"></div>
+        </div>
+        <div class="row">
+          <label class="muted"><input type="checkbox" id="showModels"> ver modelos</label>
+        </div>
+      </div>
+      <div class="row" id="dayChips" style="margin-top:10px"></div>
+      <div class="kpis" id="kpis"></div>
+    </div>
+    <div class="card">
+      <h3>Viento (kn) · horquilla 80% · línea = previsto · puntos = medido</h3>
+      <div class="chartbox"><canvas id="cWind"></canvas></div>
+      <div class="muted" id="windNote" style="margin-top:6px"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Marea (m sobre nivel medio)</h3><div class="chartbox sm"><canvas id="cTide"></canvas></div></div>
+      <div class="card"><h3>Olas (m) · rango entre modelos</h3><div class="chartbox sm"><canvas id="cWave"></canvas></div></div>
+    </div>
+    <div class="card">
+      <h3>Hora a hora</h3>
+      <div class="tablewrap"><table class="hours" id="hourTable"></table></div>
+    </div>
+  </section>
+
+  <!-- FIABILIDAD -->
+  <section id="v-rel" class="hide">
+    <div class="card">
+      <h2>¿Cuánto me fío de la horquilla?</h2>
+      <div class="sub">Porcentaje de horas en que el viento medido cayó dentro de la horquilla prevista el día antes (D-1). Objetivo: ~80%. Medido con datos que el ajuste no ha visto.</div>
+      <div class="tablewrap" style="margin-top:10px"><table class="rel" id="relTable"></table></div>
+    </div>
+    <div class="card" id="relDetail"></div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const SPORT = { windsurf: "Windsurf", kite: "Kite", wing: "Wing", surf: "Surf" };
+const LV = { "": ["", "—"], bueno: ["l1", "Bueno"], muy_bueno: ["l2", "Muy bueno"], excepcional: ["l3", "Excepcional"] };
+const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let SUM = null, SPOT = null, sport = "windsurf", charts = {}, dayFocus = null;
+
+const fmtDay = d => { const x = new Date(d + "T12:00"); return `${DOW[x.getDay()]} ${x.getDate()}`; };
+const arrow = deg => deg == null ? "" : `<span class="arrow" style="transform:rotate(${(deg + 180) % 360}deg)">↑</span>`;
+const sec = deg => deg == null ? "" : ["N","NE","E","SE","S","SW","W","NW"][Math.round(((deg % 360) / 45)) % 8];
+const n0 = v => v == null ? "–" : Math.round(v);
+const n1 = v => v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1);
+const sky = (c, p) => p > 0.3 ? "🌧️" : c == null ? "" : c < 25 ? "☀️" : c < 60 ? "⛅" : "☁️";
+
+async function load(path) { const r = await fetch(path + "?t=" + Date.now()); if (!r.ok) throw new Error(path); return r.json(); }
+
+// ---------------- Navegación
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => show(b.dataset.v));
+function show(v) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  ["sum", "spot", "rel"].forEach(x => $("#v-" + x).classList.toggle("hide", x !== v));
+  if (v === "rel") renderRel();
+  history.replaceState(null, "", v === "spot" && SPOT ? `#spot=${SPOT.id}` : `#${v}`);
+}
+
+// ---------------- Resumen
+function renderSum() {
+  const sports = [...new Set(SUM.spots.flatMap(s => s.sports))];
+  $("#sportChips").innerHTML = ["windsurf","kite","wing","surf"].filter(s => sports.includes(s))
+    .map(s => `<button class="chip ${s === sport ? "on" : ""}" data-s="${s}">${SPORT[s]}</button>`).join("");
+  $("#sportChips").querySelectorAll("button").forEach(b => b.onclick = () => { sport = b.dataset.s; renderSum(); });
+  const spots = SUM.spots.filter(s => s.sports.includes(sport));
+  const days = spots[0]?.days.map(d => d.date) || [];
+  let html = `<tr><th></th>${days.map(d => `<th>${fmtDay(d)}</th>`).join("")}</tr>`;
+  let zone = null;
+  for (const s of spots) {
+    if (s.zone !== zone) { zone = s.zone; html += `<tr><td class="zone" colspan="${days.length + 1}">${zone}</td></tr>`; }
+    html += `<tr><td class="spot" data-id="${s.id}"><b>${s.name}</b><span>${s.quality}${s.coverage_d1 != null ? " · acierto " + Math.round(s.coverage_d1 * 100) + "%" : ""}</span></td>`;
+    for (const d of s.days) {
+      const r = d[sport] || {}; const [cls, lab] = LV[r.level || ""];
+      const detail = sport === "surf"
+        ? (r.range || (d.hs != null ? `máx ${n1(d.hs)} m` : ""))
+        : (r.range || (d.wind?.p90 != null ? `${n0(d.wind.p10)}–${n0(d.wind.p90)} kn` : ""));
+      html += `<td><div class="cell ${cls}" data-id="${s.id}" data-d="${d.date}" title="${lab}">
+        <b>${r.hours ? r.hours + " h" : "—"}${r.window ? " · " + r.window : ""}</b>${detail}${sport !== "surf" && d.wind?.sector ? " · " + d.wind.sector : ""}</div></td>`;
+    }
+    html += "</tr>";
+  }
+  $("#sumTable").innerHTML = html;
+  $("#sumTable").querySelectorAll("[data-id]").forEach(el => el.onclick = () => openSpot(el.dataset.id, el.dataset.d));
+}
+
+// ---------------- Spot
+async function openSpot(id, day) {
+  SPOT = await load(`data/spot_${id}.json`);
+  $("#spotSel").value = id;
+  dayFocus = day || null;
+  show("spot");
+  renderSpot();
+}
+
+function idxRange() {
+  const t = SPOT.hours.t;
+  if (!dayFocus) return [0, t.length - 1];
+  let a = t.findIndex(x => x.startsWith(dayFocus)), b = t.length - 1 - [...t].reverse().findIndex(x => x.startsWith(dayFocus));
+  return [Math.max(0, a + 7), Math.min(t.length - 1, a + 21)];
+}
+
+function renderSpot() {
+  const S = SPOT, H = S.hours;
+  const st = S.station;
+  $("#spotMeta").innerHTML = `${S.zone} · playa orientada a ${sec(S.facing)} (${S.facing}°) · ${S.sports.map(s => SPORT[s]).join(", ")}<br>
+    Realidad: ${st ? `${st.name} (${st.km} km, ${st.kind})` : "sin estación cercana todavía"} · calibración: <b>${S.quality}</b>`;
+  const today = H.t[H.now_index]?.slice(0, 10);
+  const days = [...new Set(H.t.map(x => x.slice(0, 10)))];
+  $("#dayChips").innerHTML = `<button class="chip ${!dayFocus ? "on" : ""}" data-d="">Todo</button>` +
+    days.map(d => `<button class="chip ${dayFocus === d ? "on" : ""}" data-d="${d}">${d === today ? "Hoy" : fmtDay(d)}</button>`).join("");
+  $("#dayChips").querySelectorAll("button").forEach(b => b.onclick = () => { dayFocus = b.dataset.d || null; renderSpot(); });
+
+  // KPIs del día enfocado (o hoy)
+  const dd = S.days.find(d => d.date === (dayFocus || today)) || S.days[0];
+  const k = [];
+  if (dd) {
+    for (const sp of S.sports) {
+      const r = dd[sp] || {};
+      k.push(`<div class="kpi"><div class="l">${SPORT[sp]} · ${fmtDay(dd.date)}</div><div class="v">${r.hours || 0} h</div><div class="l">${LV[r.level || ""][1]}${r.window ? " · " + r.window : ""}${r.sure ? ` · ${r.sure} h seguras` : ""}</div></div>`);
+    }
+    k.push(`<div class="kpi"><div class="l">Viento (horas de luz)</div><div class="v">${n0(dd.wind?.p10)}–${n0(dd.wind?.p90)} kn</div><div class="l">${dd.wind?.sector || ""} · previsión a ${dd.lead} d</div></div>`);
+  }
+  $("#kpis").innerHTML = k.join("");
+
+  const [a, b] = idxRange();
+  const labels = H.t.slice(a, b + 1);
+  const sl = arr => (arr || []).slice(a, b + 1);
+  const nowI = H.now_index - a;
+  const night = sl(H.is_day).map(v => v === 0);
+
+  const bgPlugin = {
+    id: "bg", beforeDatasetsDraw(c) {
+      const { ctx, chartArea: ca, scales: { x } } = c;
+      ctx.save(); ctx.fillStyle = css("--night");
+      const w = (x.getPixelForValue(1) - x.getPixelForValue(0)) || 0;
+      night.forEach((n, i) => { if (n) ctx.fillRect(x.getPixelForValue(i) - w / 2, ca.top, w, ca.bottom - ca.top); });
+      if (nowI >= 0 && nowI < labels.length) {
+        const px = x.getPixelForValue(nowI); ctx.strokeStyle = css("--now"); ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(px, ca.top); ctx.lineTo(px, ca.bottom); ctx.stroke();
+        ctx.fillStyle = css("--now"); ctx.font = "11px system-ui"; ctx.fillText("ahora", px + 4, ca.top + 11);
+      }
+      ctx.restore();
+    }
+  };
+  const xTicks = { color: css("--ink-3"), maxRotation: 0, autoSkip: !!dayFocus, autoSkipPadding: 10,
+    callback: (v, i) => { const t = labels[i]; if (!t) return ""; const h = +t.slice(11, 13);
+      return dayFocus ? h + "h" : (h === 12 ? fmtDay(t.slice(0, 10)) : null); } };
+  const base = (yTitle) => ({
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: { legend: { labels: { color: css("--ink-2"), boxWidth: 12, filter: i => !i.text.startsWith("_") } },
+      tooltip: { callbacks: { title: it => { const t = labels[it[0].dataIndex]; return `${fmtDay(t.slice(0, 10))} ${t.slice(11)}`; } } } },
+    scales: { x: { ticks: xTicks, grid: { display: false } },
+      y: { beginAtZero: true, ticks: { color: css("--ink-3") }, grid: { color: css("--line") }, title: { display: !!yTitle, text: yTitle, color: css("--ink-3") } } }
+  });
+
+  // Viento
+  const ds = [
+    { label: "_p10", data: sl(H.p10), borderWidth: 0, pointRadius: 0, fill: false },
+    { label: "Horquilla 80%", data: sl(H.p90), borderWidth: 0, pointRadius: 0, backgroundColor: css("--band"), fill: "-1" },
+    { label: "Previsto", data: sl(H.p50), borderColor: css("--fc"), borderWidth: 2, pointRadius: 0, tension: .3 },
+    { label: "Racha prevista", data: sl(H.gust), borderColor: css("--gust"), borderDash: [4, 4], borderWidth: 1.5, pointRadius: 0, tension: .3 },
+    { label: "Medido", data: sl(H.obs), borderColor: css("--obs"), backgroundColor: css("--obs"), borderWidth: 2, pointRadius: 3, showLine: true, spanGaps: false },
+  ];
+  if ($("#showModels").checked) {
+    const grays = ["#9a9a94", "#b0afa8", "#7f7e78", "#c4c3bc", "#6c6b66"];
+    Object.entries(H.models).forEach(([m, v], i) => ds.push({ label: m, data: sl(v), borderColor: grays[i % 5], borderWidth: 1, pointRadius: 0, tension: .3 }));
+  }
+  charts.w?.destroy();
+  const ow = base("nudos");
+  ow.plugins.tooltip.callbacks.label = c => c.dataset.label.startsWith("_") ? null : `${c.dataset.label === "Horquilla 80%" ? "P90" : c.dataset.label}: ${n1(c.parsed.y)}`;
+  ow.plugins.tooltip.callbacks.afterBody = it => { const i = it[0].dataIndex + a;
+    return [`Dirección: ${sec(H.wdir[i])} (${n0(H.wdir[i])}°) · ${H.rel[i] || ""}`, `P10–P90: ${n0(H.p10[i])}–${n0(H.p90[i])} kn`]; };
+  charts.w = new Chart($("#cWind"), { type: "line", data: { labels, datasets: ds }, options: ow, plugins: [bgPlugin] });
+  const covd1 = S.reliability.coverage?.["1"];
+  $("#windNote").textContent = covd1 ? `Acierto de la horquilla a D-1 en este spot: ${Math.round(covd1.coverage * 100)}% (${S.reliability.coverage_mode}). Error medio: ${n1(covd1.mae)} kn.`
+    : "Aún sin datos suficientes de este spot: la horquilla es genérica (de los spots ya calibrados).";
+
+  // Marea
+  charts.t?.destroy();
+  const ot = base(""); ot.scales.y.beginAtZero = false; ot.plugins.legend.display = false;
+  charts.t = new Chart($("#cTide"), { type: "line", data: { labels, datasets: [{ label: "Marea", data: sl(H.sea_level_height_msl), borderColor: css("--tide"), borderWidth: 2, pointRadius: 0, tension: .4 }] }, options: ot, plugins: [bgPlugin] });
+
+  // Olas
+  charts.o?.destroy();
+  const oo = base(""); oo.plugins.legend.display = false;
+  oo.plugins.tooltip.callbacks.afterBody = it => { const i = it[0].dataIndex + a; return [`Periodo: ${n0(H.tp[i])} s · mar de fondo ${n1(H.swell[i])} m / ${n0(H.swell_tp[i])} s de ${sec(H.swell_dir[i])}`]; };
+  charts.o = new Chart($("#cWave"), { type: "line", data: { labels, datasets: [
+    { label: "_lo", data: sl(H.hs_lo), borderWidth: 0, pointRadius: 0 },
+    { label: "Rango", data: sl(H.hs_hi), borderWidth: 0, pointRadius: 0, backgroundColor: css("--waveband"), fill: "-1" },
+    { label: "Altura", data: sl(H.hs), borderColor: css("--wave"), borderWidth: 2, pointRadius: 0, tension: .3 }] }, options: oo, plugins: [bgPlugin] });
+
+  // Tabla hora a hora (día enfocado, o próximas 24 h)
+  let ia = a, ib = b;
+  if (!dayFocus) { ia = H.now_index; ib = Math.min(H.t.length - 1, ia + 23); }
+  const idx = []; for (let i = ia; i <= ib; i++) idx.push(i);
+  const isStrait = H.grad_estrecho.some(v => v != null);
+  const rows = [
+    ["Hora", i => H.t[i].slice(11, 13) + "h"],
+    ["Viento P10–P90", i => `${n0(H.p10[i])}–${n0(H.p90[i])}`],
+    ["Previsto", i => `<b>${n0(H.p50[i])}</b>`],
+    ["Racha", i => n0(H.gust[i])],
+    ["Medido", i => H.obs[i] == null ? "" : `<b style="color:var(--obs)">${n0(H.obs[i])}</b>${H.obs_gust[i] != null ? "/" + n0(H.obs_gust[i]) : ""}`],
+    ["Dirección", i => `${arrow(H.wdir[i])} ${sec(H.wdir[i])}`],
+    ["Respecto playa", i => { const r = H.rel[i] || ""; return r ? `<span class="tag ${r === "offshore" ? "off" : r.startsWith("cross") ? "" : "on"}">${r}</span>` : ""; }],
+    ["Cielo", i => `${sky(H.cloud_cover[i], H.precipitation[i])} ${n0(H.cloud_cover[i])}%`],
+    ["Lluvia mm", i => H.precipitation[i] ? n1(H.precipitation[i]) : ""],
+    ["Aire / agua °C", i => `${n0(H.temperature_2m[i])} / ${n0(H.sea_surface_temperature[i])}`],
+    ["Térmico ΔT", i => H.thermal[i] == null ? "" : (H.thermal[i] > 0 ? "+" : "") + n0(H.thermal[i])],
+    ...(isStrait ? [["Gradiente Estrecho", i => H.grad_estrecho[i] == null ? "" : (H.grad_estrecho[i] > 0 ? "lev +" : "pon ") + n1(H.grad_estrecho[i])]] : []),
+    ["Marea m", i => n1(H.sea_level_height_msl[i])],
+    ["Olas m · s", i => H.hs[i] == null ? "" : `${n1(H.hs[i])} · ${n0(H.tp[i])}`],
+    ["Mar de fondo", i => H.swell[i] == null ? "" : `${n1(H.swell[i])} ${sec(H.swell_dir[i])}`],
+  ];
+  $("#hourTable").innerHTML = rows.map(([lab, f], r) => `<tr class="${r === 2 ? "hl" : ""}"><${r ? "td" : "th"}>${lab}</${r ? "td" : "th"}>${idx.map(i => `<${r ? "td" : "th"}>${f(i)}</${r ? "td" : "th"}>`).join("")}</tr>`).join("");
+}
+$("#showModels").onchange = () => renderSpot();
+$("#spotSel").onchange = e => openSpot(e.target.value);
+
+// ---------------- Fiabilidad
+function renderRel() {
+  const rows = SUM.spots.map(s => {
+    const c = s.coverage_d1;
+    return `<tr data-id="${s.id}" style="cursor:pointer"><td><b>${s.name}</b><div class="muted">${s.zone}</div></td>
+      <td>${s.station ? `${s.station} <span class="muted">${s.station_km} km</span>` : "<span class='muted'>—</span>"}</td>
+      <td><span class="tag">${s.quality}</span></td>
+      <td>${c != null ? `<div class="row"><div class="meter" style="width:110px"><span style="width:${Math.round(c * 100)}%"></span><em></em></div> ${Math.round(c * 100)}%</div>` : "<span class='muted'>—</span>"}</td>
+      <td>${s.mae_d1 != null ? n1(s.mae_d1) + " kn" : "—"}</td></tr>`;
+  }).join("");
+  $("#relTable").innerHTML = `<tr><th>Spot</th><th>Estación de realidad</th><th>Calibración</th><th>Acierto horquilla D-1</th><th>Error medio D-1</th></tr>${rows}`;
+  $("#relTable").querySelectorAll("tr[data-id]").forEach(tr => tr.onclick = () => relDetail(tr.dataset.id));
+  relDetail((SPOT && SPOT.id) || SUM.spots.find(s => s.coverage_d1 != null)?.id || SUM.spots[0].id);
+}
+async function relDetail(id) {
+  const S = await load(`data/spot_${id}.json`), R = S.reliability;
+  const leads = Object.keys(R.coverage || {}).sort((x, y) => x - y);
+  const l1 = R.lead_stats?.["1"] || R.lead_stats?.["0"];
+  const models = l1 ? Object.entries(l1.models).sort((x, y) => x[1].mae - y[1].mae) : [];
+  const secs = l1 ? Object.entries(l1.sector_bias || {}).sort((x, y) => Math.abs(y[1].bias) - Math.abs(x[1].bias)) : [];
+  $("#relDetail").innerHTML = `<h2>${S.name}</h2>
+    <div class="sub">${R.hours ? `${R.hours} horas comparadas desde ${R.from}` : "Todavía sin horas comparadas"} · ${R.coverage_mode || ""}</div>
+    <div class="grid2" style="margin-top:12px">
+      <div><h3>Por antelación</h3>${leads.length ? `<table class="rel"><tr><th>Antelación</th><th>Acierto</th><th>Error medio</th><th>Ancho horquilla</th></tr>
+        ${leads.map(l => { const c = R.coverage[l]; return `<tr><td>${l === "0" ? "mismo día" : `D-${l}`}</td><td>${Math.round(c.coverage * 100)}%</td><td>${n1(c.mae)} kn</td><td>${n1(c.width)} kn</td></tr>`; }).join("")}</table>`
+        : `<div class="note">Se rellenará cuando haya datos de la estación.</div>`}</div>
+      <div><h3>Modelos en este spot (D-1)</h3>${models.length ? `<table class="rel"><tr><th>Modelo</th><th>Error medio</th><th>Sesgo</th><th>Peso</th></tr>
+        ${models.map(([m, v]) => `<tr><td>${m}</td><td>${n1(v.mae)} kn</td><td>${v.bias > 0 ? "se queda corto " : "se pasa "}${n1(Math.abs(v.bias))}</td><td>${R.weights?.["1"]?.[m] != null ? Math.round(R.weights["1"][m] * 100) + "%" : "–"}</td></tr>`).join("")}</table>`
+        : `<div class="note">Sin datos aún.</div>`}</div>
+    </div>
+    ${secs.length ? `<h3 style="margin-top:14px">Sesgo según dirección (lo medido menos lo previsto, D-1)</h3><div class="row">${secs.map(([s, v]) => `<span class="tag">${s}: ${v.bias > 0 ? "+" : ""}${n1(v.bias)} kn <span class="muted">(${v.n} h)</span></span>`).join("")}</div>` : ""}`;
+}
+
+// ---------------- Arranque
+(async () => {
+  try { SUM = await load("data/summary.json"); }
+  catch (e) { $("main").innerHTML = `<div class="card">Todavía no hay datos. La primera recogida tarda unos minutos.</div>`; return; }
+  const g = new Date(SUM.generated);
+  $("#gen").textContent = `actualizado ${g.toLocaleString("es-ES", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`;
+  $("#spotSel").innerHTML = SUM.spots.map(s => `<option value="${s.id}">${s.zone} · ${s.name}</option>`).join("");
+  renderSum();
+  const h = location.hash;
+  if (h.startsWith("#spot=")) openSpot(h.slice(6)); else if (h === "#rel") show("rel");
+})();
+</script>
+</body>
+</html>
