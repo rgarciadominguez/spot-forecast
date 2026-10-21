@@ -1,1 +1,1 @@
-{"started":"2026-10-21T06:55+00:00","obs":{"flecha":35,"ipma":273,"aemet":0},"snapshots":23,"fc_rows":66240,"backfill":{"requests":6,"weight":579,"spots_pendientes":13,"done":false},"spots_built":23,"seconds":912}
+{"started":"2026-10-21T07:39+00:00","obs":{"flecha":36,"ipma":273,"aemet":0,"meteostat_08495":6858,"meteostat_08025":6850,"meteostat_08021":6847,"meteostat_LPCS0":4276,"meteostat_08451":5704},"backfill":{"requests":12,"weight":1148,"spots_pendientes":7,"done":false},"spots_built":23,"seconds":889}
