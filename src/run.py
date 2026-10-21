@@ -95,6 +95,8 @@ def backfill_step(budget: float | None = None, max_seconds: int = 12 * 60) -> di
             _save_state(st)
     except RateLimited as e:
         print(f"[backfill] cupo de la API agotado, sigo en la próxima ejecución: {e}", flush=True)
+    except Exception as e:  # noqa: BLE001  (un fallo del histórico nunca debe tumbar la recogida)
+        print(f"[backfill] falló, sigo en la próxima ejecución: {e}", flush=True)
     finally:
         st["spent"][today] = round(spent_today + used, 1)
         st["spent"] = {k: v for k, v in st["spent"].items() if k >= (_now().date() - timedelta(days=3)).isoformat()}

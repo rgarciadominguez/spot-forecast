@@ -81,9 +81,17 @@ def http_get(url: str, params: dict | None = None, *, tries: int = 3, timeout: i
 
 
 def get_json(url: str, params: dict | None = None, **kw):
-    r = http_get(url, params, **kw)
-    r.raise_for_status()
-    return r.json()
+    """GET + JSON, reintentando si la respuesta llega cortada (pasa con respuestas grandes)."""
+    last = None
+    for i in range(3):
+        r = http_get(url, params, **kw)
+        r.raise_for_status()
+        try:
+            return r.json()
+        except ValueError as e:
+            last = e
+            time.sleep(5 * (i + 1))
+    raise RuntimeError(f"JSON inválido tras 3 intentos: {url} -> {last}")
 
 
 def get_gz_text(url: str) -> str | None:

@@ -3,6 +3,7 @@ name: Recogida horaria
 on:
   schedule:
     - cron: "17 * * * *"   # cada hora (UTC)
+    - cron: "47 * * * *"   # refuerzo: GitHub retrasa/salta crons en repos nuevos
   workflow_dispatch: {}
 
 permissions:
