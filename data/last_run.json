@@ -1,1 +1,1 @@
-{"started":"2026-10-21T18:38+00:00","obs":{"flecha":47,"ipma":269,"aemet":343},"snapshots":23,"fc_rows":66240,"backfill":{"requests":4,"weight":64,"spots_pendientes":1,"done":false},"spots_built":23,"seconds":546}
+{"started":"2026-10-21T21:59+00:00","obs":{"flecha":50,"ipma":269,"aemet":336},"snapshots":23,"backfill":{"requests":6,"weight":96,"spots_pendientes":1,"done":false},"spots_built":23,"seconds":692}
