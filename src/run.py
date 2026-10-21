@@ -57,9 +57,10 @@ def _resume_from(spot_id: str, start: str) -> str:
     return (old.max() + pd.Timedelta(hours=1)).date().isoformat()
 
 
-def backfill_step(budget: float | None = None, max_seconds: int = 12 * 60) -> dict:
+def backfill_step(budget: float | None = None, max_seconds: int = 8 * 60) -> dict:
     """Avanza el histórico pendiente sin pasarse del cupo ni del tiempo. Agrupa spots con el mismo punto
-    de avance para hacer pocas peticiones."""
+    de avance para hacer pocas peticiones. `max_seconds` es un techo: no empieza un tramo que, al ritmo
+    del tramo más lento visto (el límite por minuto de la API mete esperas de ~3 min), no quepa."""
     st = _load_state()
     if not st or st.get("done"):
         return {"status": "nada pendiente"}
@@ -73,6 +74,7 @@ def backfill_step(budget: float | None = None, max_seconds: int = 12 * 60) -> di
         if s["id"] not in st["cursor"]:
             st["cursor"][s["id"]] = _resume_from(s["id"], st["start"])
     used, chunks = 0.0, 0
+    slowest = 4 * 60.0  # estimación inicial de un tramo con espera por límite de la API
     try:
         while True:
             pending = [s for s in spots if date.fromisoformat(st["cursor"][s["id"]]) <= end]
@@ -84,9 +86,11 @@ def backfill_step(budget: float | None = None, max_seconds: int = 12 * 60) -> di
             grp = [s for s in pending if st["cursor"][s["id"]] == cur.isoformat()][:GROUP]
             c_end = min(cur + timedelta(days=CHUNK_DAYS - 1), end)
             w = history_weight((c_end - cur).days + 1, len(grp))
-            if used + w > budget or time.time() - t0 > max_seconds:
+            if used + w > budget or time.time() - t0 + slowest > max_seconds:
                 break
+            tc = time.time()
             rows = update_fc_history(grp, cur, c_end)
+            slowest = max(slowest, time.time() - tc)
             print(f"[backfill] {cur}..{c_end}: " + ", ".join(f"{k}={v}" for k, v in rows.items()), flush=True)
             used += w
             chunks += 1
@@ -105,7 +109,7 @@ def backfill_step(budget: float | None = None, max_seconds: int = 12 * 60) -> di
     return {"requests": chunks, "weight": round(used), "spots_pendientes": pend, "done": st.get("done", False)}
 
 
-def collect():
+def collect(run_backfill: bool = True):
     t0 = time.time()
     now = _now()
     log = {"started": now.isoformat(timespec="minutes")}
@@ -129,7 +133,7 @@ def collect():
     except Exception as e:  # noqa: BLE001
         print(f"[fc] falló: {e}", flush=True)
         log["fc_error"] = str(e)
-    if not log.get("rate_limited"):
+    if run_backfill and not log.get("rate_limited"):
         log["backfill"] = backfill_step()
     calibrate_all()
     summ = build_all()
@@ -147,7 +151,7 @@ def backfill(start: date):
               "spent": {}, "done": False}
         _save_state(st)
     print("Histórico:", backfill_step(budget=HOURLY_BUDGET * 2, max_seconds=25 * 60), flush=True)
-    collect()
+    collect(run_backfill=False)  # el histórico ya se ha avanzado arriba; no repetir otra tanda
 
 
 def main():
