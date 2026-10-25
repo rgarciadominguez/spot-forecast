@@ -1,1 +1,1 @@
-{"started":"2026-10-25T16:52+00:00","obs":{"flecha":73,"ipma":273,"aemet":333},"backfill":{"status":"nada pendiente"},"spots_built":23,"seconds":16}
+{"started":"2026-10-25T19:36+00:00","obs":{"flecha":73,"ipma":0,"aemet":333,"meteostat_08495":6945,"meteostat_08025":6960,"meteostat_08021":6957,"meteostat_LPCS0":4347,"meteostat_08451":5796},"backfill":{"status":"nada pendiente"},"spots_built":23,"seconds":182}
