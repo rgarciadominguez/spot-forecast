@@ -1,1 +1,1 @@
-{"started":"2026-11-09T06:26+00:00","obs":{"flecha":73,"ipma":302,"aemet":307},"snapshots":23,"fc_error":"JSON inválido tras 3 intentos: https://previous-runs-api.open-meteo.com/v1/forecast -> Expecting value: line 1 column 1 (char 0)","backfill":{"status":"nada pendiente"},"spots_built":23,"seconds":471}
+{"started":"2026-11-09T07:12+00:00","obs":{"flecha":73,"ipma":300,"aemet":307,"meteostat_08495":7276,"meteostat_08025":7278,"meteostat_08021":7275,"meteostat_LPCS0":4567,"meteostat_08451":6061},"backfill":{"status":"nada pendiente"},"spots_built":23,"seconds":16}
