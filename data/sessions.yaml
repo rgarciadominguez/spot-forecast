@@ -1,0 +1,28 @@
+# Sesiones / observaciones de Rafa en el agua o en la playa.
+# wind_kn: lo que él estima que había (rango). rating: 1-5 si navegó.
+# Se cruzan con lo previsto y lo medido por las estaciones para calibrar "lo que hay en el agua".
+sessions:
+  - date: 2026-10-29
+    spot: canos
+    hours: "día"
+    wind_kn: [28, 32]
+    notes: "Levante. ~30 kn."
+  - date: 2026-11-08
+    spot: punta_umbria
+    hours: "15-18h"
+    wind_kn: [12, 18]
+    notes: "Desde las 15h 12-18 kn."
+  - date: 2026-11-08
+    spot: punta_umbria
+    hours: "18h-noche"
+    wind_kn: [18, 25]
+    notes: "Entró fuerte a partir de las 18h y siguió de noche (no navegable por luz)."
+  - date: 2026-11-09
+    spot: punta_umbria
+    hours: "10-15h"
+    wind_kn: [12, 15]
+  - date: 2026-11-11
+    spot: punta_umbria
+    hours: "casi todo el día"
+    wind_kn: [28, 32]
+    notes: "Día de ~30 kn casi todo el día."
